@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>艾尔德兰大陆 · NPC系统 · 外观影响</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0604; font-family: 'Georgia', 'Times New Roman', serif; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 6px; background-image: radial-gradient(ellipse at 30% 20%, #1a0e06 0%, #050201 70%); }
+    .game-container { max-width: 1400px; width: 100%; background: #1a1009; background-image: linear-gradient(160deg, #24140a 0%, #0d0603 100%); border: 3px solid #8a6a4a; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.9); padding: 8px; color: #e8d5b5; }
+    .main-layout { display: flex; gap: 6px; flex-wrap: wrap; }
+    .map-panel { flex: 2; min-width: 600px; height: 680px; background: #0d0501; border: 2px solid #5a3a20; border-radius: 12px; position: relative; overflow: hidden; }
+    .map-container { width: 100%; height: 100%; position: relative; overflow: auto; background: #0a0301; background-image: radial-gradient(circle at 20% 30%, #1a2a0a 1px, transparent 1px),radial-gradient(circle at 50% 40%, #1a0a2a 1px, transparent 1px),radial-gradient(circle at 70% 25%, #2a1a0a 1px, transparent 1px); background-size: 50px 50px,70px 70px,60px 60px; }
+    .map-inner { width: 1800px; height: 1400px; position: relative; }
+    .terrain { position: absolute; border-radius: 25px; opacity: 0.1; pointer-events: none; z-index: 1; }
+    .terrain-label { position: absolute; font-size: 18px; font-weight: bold; pointer-events: none; z-index: 2; color: rgba(200,180,150,0.35); letter-spacing: 3px; }
+    .map-location { position: absolute; z-index: 10; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 3px; white-space: nowrap; padding: 2px 5px; border-radius: 8px; background: rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.2); }
+    .map-location:hover { transform: scale(1.15); z-index: 100; box-shadow: 0 0 15px currentColor; border-color: white; background: rgba(10,5,0,0.9); }
+    .map-location.visited { border-color: #8cb87a; }
+    .map-location.current { border: 2px solid #ffd700; z-index: 200; box-shadow: 0 0 18px #ffd700,0 0 40px #ff8c00; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 10px #ffd700} 50%{box-shadow:0 0 25px #ff8c00} }
+    .loc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.4); }
+    .loc-name { font-size: 9px; color: #ddd; font-weight: bold; text-shadow: 0 0 2px black; }
+    .info-panel { flex: 1; min-width: 300px; max-width: 400px; display: flex; flex-direction: column; gap: 3px; }
+    .status-bar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; background: #150a04; border: 2px solid #7a5535; border-radius: 15px; padding: 3px 7px; color: #ffd699; font-weight: bold; font-size: 0.55rem; background: linear-gradient(180deg, #241408 0%, #0a0401 100%); gap: 3px; }
+    .stat { display: flex; align-items: center; gap: 1px; }
+    .rep-badges { display: flex; gap: 2px; flex-wrap: wrap; }
+    .rep-badge { padding: 1px 4px; border-radius: 6px; font-size: 0.42rem; border: 1px solid; }
+    .location-info-box { background: #150a04; border: 2px solid #5a3a20; border-radius: 10px; padding: 5px 8px; font-size: 0.5rem; color: #c9a063; }
+    .location-name-display { font-size: 0.65rem; font-weight: bold; color: #ffd699; }
+    .location-desc { font-size: 0.48rem; color: #a08060; margin-top: 2px; font-style: italic; }
+    .npc-box { background: #1a0e04; border: 2px solid #4a3a5a; border-radius: 10px; padding: 5px 8px; font-size: 0.48rem; color: #b89ad8; }
+    .npc-name { font-size: 0.55rem; font-weight: bold; color: #d4b8e8; }
+    .npc-desc { font-size: 0.42rem; color: #9a8ac8; margin-top: 2px; }
+    .npc-reaction { font-size: 0.42rem; color: #c9a063; margin-top: 2px; font-style: italic; }
+    .parchment { background: #e0ccaa; color: #1a0c04; border-radius: 8px; border: 2px solid #a08060; padding: 6px 8px; line-height: 1.25; min-height: 28px; font-size: 0.62rem; font-weight: bold; white-space: pre-wrap; word-break: break-word; max-height: 85px; overflow-y: auto; }
+    .narrator-text { color: #6b4423; font-style: italic; font-weight: normal; font-size: 0.52rem; display: block; margin-top: 2px; padding-top: 2px; border-top: 1px dashed #c9a063; }
+    .appearance-text { color: #8a5a6a; font-size: 0.48rem; font-style: italic; display: block; margin-top: 1px; }
+    .action-result-text { color: #4a6a2a; font-size: 0.5rem; display: block; margin-top: 1px; }
+    .equip-bar { display: flex; flex-wrap: wrap; gap: 2px; background: #150a04; border: 1px solid #5a3a20; border-radius: 8px; padding: 2px; font-size: 0.45rem; justify-content: center; }
+    .equip-slot { background: #1e1006; border: 1px solid #3a2010; border-radius: 5px; padding: 1px 3px; text-align: center; cursor: pointer; min-width: 35px; }
+    .equip-slot:hover { border-color: #c9a050; }
+    .equip-slot-name { font-size: 0.32rem; color: #7a5535; }
+    .equip-slot-item { font-size: 0.45rem; font-weight: bold; }
+    .section-label { color: #c9a063; font-size: 0.45rem; margin: 2px 0 1px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px dashed #7a5535; padding-bottom: 1px; font-weight: bold; }
+    .btn-grid { display: flex; flex-wrap: wrap; gap: 1px; margin: 1px 0; justify-content: center; }
+    .btn { background: #3a2012; border: 1px solid #b89050; color: #f5dba6; font-family: 'Georgia', serif; font-weight: bold; font-size: 0.42rem; padding: 2px 3px; border-radius: 4px; cursor: pointer; background: linear-gradient(180deg, #4e3020 0%, #201008 100%); box-shadow: 0 1px 0 #2a1808; transition: 0.05s; flex: 1 1 auto; min-width: 30px; text-align: center; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.4; pointer-events: none; cursor: not-allowed; }
+    .btn-combat { background: linear-gradient(180deg, #5a2a2a 0%, #2a1010 100%); border-color: #c87070; }
+    .btn-shop { background: linear-gradient(180deg, #2a4a2a 0%, #1a2a1a 100%); border-color: #70c870; }
+    .reset-btn { background: #4a2a18; border: 2px solid #d4a565; padding: 2px 7px; font-size: 0.48rem; cursor: pointer; border-radius: 8px; color: #ffefd0; }
+    .flex-center { display: flex; justify-content: center; margin-top: 2px; gap: 3px; flex-wrap: wrap; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 500; }
+    .modal-content { background: #1e1006; border: 3px solid #9a7050; border-radius: 12px; padding: 8px; max-width: 480px; width: 92%; color: #e8d5b5; box-shadow: 0 15px 30px black; max-height: 75vh; overflow-y: auto; font-size: 0.52rem; }
+    .modal-item { padding: 2px 4px; border-bottom: 1px solid #4a3018; display: flex; justify-content: space-between; align-items: center; gap: 2px; flex-wrap: wrap; }
+    .equip-btn { background: #4a7a3a; border: 1px solid #7ab86a; color: white; padding: 1px 3px; border-radius: 3px; cursor: pointer; font-size: 0.38rem; }
+    .unequip-btn { background: #7a3a3a; border: 1px solid #b86a6a; color: white; padding: 1px 3px; border-radius: 3px; cursor: pointer; font-size: 0.38rem; }
+    .sell-btn { background: #7a6a2a; border: 1px solid #c8b868; color: white; padding: 1px 3px; border-radius: 3px; cursor: pointer; font-size: 0.38rem; }
+    .decompose-btn { background: #4a6a6a; border: 1px solid #88b8c8; color: white; padding: 1px 3px; border-radius: 3px; cursor: pointer; font-size: 0.38rem; }
+    .trait-btn { background: #5a4a7a; border: 1px solid #9a8ac8; color: white; padding: 1px 4px; border-radius: 3px; cursor: pointer; font-size: 0.38rem; }
+    .confirm-btn { background: #7a4a3a; border: 2px solid #d88888; color: white; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.44rem; margin: 2px; }
+    .cancel-btn { background: #3a5a3a; border: 2px solid #88d888; color: white; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.44rem; margin: 2px; }
+    .close-modal { background: #5a3a20; border: 2px solid #d4a565; color: white; padding: 2px 8px; border-radius: 6px; cursor: pointer; margin-top: 5px; font-weight: bold; }
+    .rc{color:#aaa}.ru{color:#8cff8c}.rr{color:#5c9cff}.re{color:#c05cff}.rl{color:#ff8c00}
+    .legend { position: absolute; bottom: 6px; left: 6px; z-index: 300; background: rgba(0,0,0,0.85); border: 1px solid #5a3a20; border-radius: 6px; padding: 2px 6px; font-size: 7px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .legend-item { display: flex; align-items: center; gap: 1px; }
+    .legend-dot { width: 5px; height: 5px; border-radius: 50%; }
+    @media(max-width:900px){.main-layout{flex-direction:column}.map-panel{height:360px;min-width:300px}.info-panel{max-width:none}}
+  </style>
+</head>
+<body>
+<div class="game-container">
+  <div class="main-layout">
+    <div class="map-panel" id="mapPanel"><div class="map-container" id="mapContainer"><div class="map-inner" id="mapInner"></div></div>
+      <div class="legend"><span style="color:#fff;">图例:</span><span class="legend-item"><span class="legend-dot" style="background:#e0b870;"></span>城镇</span><span class="legend-item"><span class="legend-dot" style="background:#6ab86a;"></span>森林</span><span class="legend-item"><span class="legend-dot" style="background:#c9a0a0;"></span>山脉</span><span class="legend-item"><span class="legend-dot" style="background:#a080c0;"></span>地下城</span><span class="legend-item"><span class="legend-dot" style="background:#c0b080;"></span>遗迹</span><span class="legend-item"><span class="legend-dot" style="background:#c080c0;"></span>特殊</span><span class="legend-item"><span class="legend-dot" style="background:#80a080;"></span>营地</span><span class="legend-item"><span style="color:#ffd700;">★</span>当前位置</span></div>
+    </div>
+    <div class="info-panel">
+      <div class="status-bar">
+        <span class="stat">❤️<span id="hpD">25</span></span><span class="stat">⚔️<span id="atkD">5</span></span><span class="stat">🛡️<span id="defD">2</span></span><span class="stat">🍀<span id="luckD">2</span></span><span class="stat">💰<span id="goldD">15</span></span><span class="stat">✨Lv<span id="lvlD">1</span></span>
+        <div class="rep-badges">
+          <span class="rep-badge" style="background:#3a2a00;border-color:#e0b870;color:#e0b870;" id="repKingdom">🏰陌生人</span>
+          <span class="rep-badge" style="background:#2a002a;border-color:#c080c0;color:#c080c0;" id="repMystic">🔮外来者</span>
+        </div>
+      </div>
+      <div class="location-info-box">
+        <div class="location-name-display" id="locNameDisplay">🏰王都格兰威尔</div>
+        <div class="location-desc" id="locDescDisplay">大陆最大的王国首都。</div>
+      </div>
+      <div class="npc-box" id="npcBox">
+        <div class="npc-name" id="npcName">👤镇长·埃德温</div>
+        <div class="npc-desc" id="npcDesc">一位白发苍苍的老者，负责管理镇上的事务。</div>
+        <div class="npc-reaction" id="npcReaction">他看了你一眼，微微点头。</div>
+      </div>
+      <div class="equip-bar" id="equipBar"></div>
+      <div class="parchment" id="story"></div>
+      <div id="buildActions"></div>
+      <div class="flex-center">
+        <button class="btn" onclick="oB()">🎒背包</button>
+        <button class="btn" onclick="oC()">👤角色</button>
+        <button class="btn" onclick="oT()">🌟特质</button>
+        <button class="reset-btn" id="resetB">✨重启</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal" id="bagM"><div class="modal-content"><h3>🎒行囊</h3><div id="bagL"></div><button class="close-modal" onclick="cM('bagM')">关闭</button></div></div>
+<div class="modal" id="charM"><div class="modal-content"><h3>👤角色详情</h3><div id="charI"></div><button class="close-modal" onclick="cM('charM')">关闭</button></div></div>
+<div class="modal" id="traitM"><div class="modal-content"><h3>🌟特质与专精</h3><div id="traitI"></div><button class="close-modal" onclick="cM('traitM')">关闭</button></div></div>
+<div class="modal" id="confirmM"><div class="modal-content" style="text-align:center;"><h3>⚠️确认重启</h3><p>确定吗？</p><div><button class="confirm-btn" id="confirmReset">✅确认</button><button class="cancel-btn" onclick="cM('confirmM')">❌取消</button></div></div></div>
+
+<script>
+(()=>{
+  // ========== NPC系统（150个地点各至少1个NPC） ==========
+  const NPC_DATABASE = {
+    // 城镇NPC
+    granville:[{name:'公会会长·雷纳德',desc:'冒险者公会的负责人，经验丰富的老战士。',reactions:{default:'打量着你，评估着你的实力。',friendly:'热情地拍了拍你的肩膀。',respected:'恭敬地向你行礼。',unfriendly:'皱了皱眉，似乎有些怀疑。'}}],
+    silverport:[{name:'船长·玛丽娜',desc:'一位常年出海的女船长，皮肤被海风吹得黝黑。',reactions:{default:'靠在船舷上看着你。',friendly:'邀请你上船喝一杯。',respected:'向你讲述远方的见闻。'}}],
+    ironforge:[{name:'铁匠大师·巴林',desc:'矮人族最出色的铁匠之一，胡子上沾满了火星。',reactions:{default:'专注地敲打着铁砧。',friendly:'停下手中的活计与你交谈。',respected:'拿出珍藏的矿石给你看。'}}],
+    moonbrook:[{name:'月光祭司·艾琳',desc:'守护月光石矿的年轻女祭司。',reactions:{default:'静静站在月光下祈祷。',friendly:'微笑着向你介绍月光石的传说。',respected:'为你施展月光祝福。'}}],
+    sunspire:[{name:'圣骑士团长·奥德里克',desc:'身穿金色铠甲的高大骑士，正义的化身。',reactions:{default:'用锐利的目光审视着你。',friendly:'点头认可你的存在。',respected:'邀请你加入骑士团的训练。'}}],
+    thornwall:[{name:'玫瑰骑士·伊莎贝尔',desc:'荆棘墙堡的女指挥官，美丽而致命。',reactions:{default:'手握剑柄警惕地看着你。',friendly:'摘下头盔露出微笑。',respected:'与你讨论边境防御策略。'}}],
+    goldfield:[{name:'农夫·托马斯',desc:'金田村最勤劳的农夫，双手布满老茧。',reactions:{default:'在田间忙碌着。',friendly:'递给你一个新鲜的面包。',respected:'分享他今年的丰收计划。'}}],
+    shadowmere:[{name:'暗影商人·维克多',desc:'穿着黑色斗篷的神秘商人，经营着特殊商品。',reactions:{default:'在阴影中默默观察你。',friendly:'掀开斗篷露出一抹神秘的微笑。',respected:'为你展示他的珍藏品。'}}],
+    crossroads:[{name:'旅店老板·玛莎',desc:'十字路口旅店的老板娘，消息灵通。',reactions:{default:'擦拭着吧台，随意地看了你一眼。',friendly:'热情地为你斟满酒杯。',respected:'附耳告诉你一个秘密消息。'}}],
+    oldtown:[{name:'历史学者·阿尔伯特',desc:'研究古代历史的学者，戴着厚厚的眼镜。',reactions:{default:'埋头在古籍中。',friendly:'抬起头与你讨论历史。',respected:'展示他最新的考古发现。'}}],
+    // 森林NPC
+    elderwood:[{name:'精灵长老·艾尔文',desc:'千年古树的守护者，眼中闪烁着智慧的光芒。',reactions:{default:'安静地坐在古树下冥想。',friendly:'睁开眼睛向你微笑。',respected:'为你讲述精灵族的古老传说。'}}],
+    whispergrove:[{name:'德鲁伊·莫拉',desc:'与自然融为一体的德鲁伊，身上缠绕着藤蔓。',reactions:{default:'与林间的动物低语。',friendly:'呼唤一只小鸟落在你的肩头。',respected:'传授你与自然沟通的方法。'}}],
+    shadowfen:[{name:'沼泽向导·格鲁姆',desc:'熟悉暗影沼泽每一个角落的老猎人。',reactions:{default:'警惕地握着长矛。',friendly:'警告你沼泽中的危险区域。',respected:'带你前往沼泽深处的秘密地点。'}}],
+    emeraldglade:[{name:'精灵舞者·莉亚',desc:'翡翠空地上最优雅的精灵舞者。',reactions:{default:'在草地间轻盈地舞动。',friendly:'向你伸出手邀请共舞。',respected:'为你跳一支祝福之舞。'}}],
+    fairyring:[{name:'妖精女王·蒂娜',desc:'只有手掌大小的妖精女王，翅膀闪烁着星光。',reactions:{default:'在蘑菇上好奇地看着你。',friendly:'飞到你的耳边轻声细语。',respected:'赐予你妖精的祝福粉末。'}}],
+    druidcircle:[{name:'大德鲁伊·奥克',desc:'德鲁伊之环的守护者，能与万物交谈。',reactions:{default:'站在石圈中央仰望天空。',friendly:'用低沉的声音欢迎你。',respected:'让你触摸古老的德鲁伊石碑。'}}],
+    // 山脉NPC
+    dwarvenhold:[{name:'矮人国王·索林',desc:'矮人要塞的统治者，手持巨大的战锤。',reactions:{default:'坐在王座上审视着你。',friendly:'邀请你参加矮人的宴会。',respected:'为你打造一件专属装备。'}}],
+    dragonpeak:[{name:'龙语者·瑟拉',desc:'能与龙族交流的稀有血脉拥有者。',reactions:{default:'眺望着远方的龙峰。',friendly:'向你讲述龙族的故事。',respected:'教你一句简单的龙语。'}}],
+    // 地下城NPC
+    darkmere:[{name:'探险家·达里安',desc:'在地下城入口徘徊的探险家，装备精良。',reactions:{default:'检查着自己的装备。',friendly:'与你分享地下城的探索经验。',respected:'邀请你一起深入地下城。'}}],
+    // 遗迹NPC
+    starlibrary:[{name:'星之守护者·阿斯特拉',desc:'星空图书馆的管理员，身穿绣满星辰的长袍。',reactions:{default:'在书架间静静穿行。',friendly:'为你推荐一本古籍。',respected:'打开封印的魔法书给你阅读。'}}],
+    // 特殊地点NPC
+    celestialpeak:[{name:'天使·加百列',desc:'天界峰的守护天使，散发着圣洁的光芒。',reactions:{default:'在高处静静注视着你。',friendly:'展开洁白的羽翼。',respected:'赐予你天界的祝福之光。'}}],
+    // 营地NPC
+    adventurercamp1:[{name:'冒险者·杰克',desc:'一位年轻的冒险者，正在篝火旁烤着肉。',reactions:{default:'专注地翻转着烤肉。',friendly:'递给你一串刚烤好的肉。',respected:'向你请教战斗技巧。'}}],
+  };
+
+  // 通用NPC模板（没有特定NPC的地点使用）
+  const GENERIC_NPCS = {
+    town:[{name:'镇长',desc:'负责管理镇上的事务。'},{name:'守卫队长',desc:'维护镇上秩序的卫兵队长。'},{name:'商人',desc:'经营着镇上最大的商铺。'}],
+    forest:[{name:'猎人',desc:'在森林中狩猎为生的老猎人。'},{name:'采集者',desc:'在林中采集药草和蘑菇。'}],
+    mountain:[{name:'矿工',desc:'在山中挖掘矿石的矿工。'},{name:'登山者',desc:'挑战高峰的勇敢登山者。'}],
+    dungeon:[{name:'探险者',desc:'深入地下城寻找宝藏的探险者。'}],
+    ruins:[{name:'考古学家',desc:'研究古代遗迹的学者。'},{name:'寻宝者',desc:'在废墟中搜寻宝物的冒险者。'}],
+    special:[{name:'神秘人',desc:'身份不明的神秘人物。'}],
+    camp:[{name:'冒险者',desc:'在营地中休息的冒险者。'},{name:'厨师',desc:'为营地准备食物的厨师。'}],
+  };
+
+  function getNPCForLocation(locId){
+    if(NPC_DATABASE[locId])return NPC_DATABASE[locId][Math.floor(Math.random()*NPC_DATABASE[locId].length)];
+    const loc=LOC[locId];const pool=GENERIC_NPCS[loc.r]||GENERIC_NPCS['camp'];
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+
+  function getNPCReaction(npc,repLevel){
+    const repName=repLevel.name;
+    if(repName.includes('英雄')||repName.includes('贤者')||repName.includes('勇士')||repName.includes('启灵者')||repName.includes('共鸣者'))return npc.reactions?.respected||'尊敬地看着你。';
+    if(repName.includes('友人')||repName.includes('受尊敬')||repName.includes('访客')||repName.includes('感应者'))return npc.reactions?.friendly||'友好地与你交谈。';
+    if(repName.includes('陌生')||repName.includes('外来者')||repName.includes('默默无闻'))return npc.reactions?.default||'打量着你。';
+    return npc.reactions?.unfriendly||'警惕地看着你。';
+  }
+
+  function getAppearanceNPCBonus(){
+    let bonus=0;const desc=getAppearanceDesc();
+    if(desc.includes('重甲')||desc.includes('板甲'))bonus+=1;
+    if(desc.includes('王冠'))bonus+=2;
+    if(desc.includes('长袍')||desc.includes('贤者'))bonus+=1;
+    if(desc.includes('龙鳞')||desc.includes('龙心'))bonus+=2;
+    if(desc.includes('面具'))bonus-=1;
+    return bonus;
+  }
+
+  // ========== 修复后的声望等级 ==========
+  const FACTION_REPUTATION={
+    kingdom:{name:'王国阵营',icon:'🏰',levels:[
+      {min:-100,name:'不受欢迎',color:'#cc6666',desc:'守卫会特别留意你'},
+      {min:-30,name:'陌生人',color:'#aaaaaa',desc:'你在大街上无人认识'},
+      {min:10,name:'访客',color:'#cccc88',desc:'镇上的人开始眼熟你'},
+      {min:30,name:'友人',color:'#88cc88',desc:'商人愿意给你折扣'},
+      {min:60,name:'勇士',color:'#44aa44',desc:'人们称颂你的名字'},
+      {min:100,name:'英雄',color:'#ffd700',desc:'你的传说在王国流传'}
+    ]},
+    mystic:{name:'神秘阵营',icon:'🔮',levels:[
+      {min:-100,name:'不受欢迎',color:'#9966aa',desc:'妖精与精灵避开你'},
+      {min:-30,name:'外来者',color:'#888888',desc:'神秘力量对你无感'},
+      {min:10,name:'感应者',color:'#8888cc',desc:'你能感到魔力的波动'},
+      {min:30,name:'共鸣者',color:'#6688cc',desc:'精灵愿意与你交流'},
+      {min:60,name:'启灵者',color:'#4488dd',desc:'古老魔法回应你的呼唤'},
+      {min:100,name:'贤者',color:'#cc44ff',desc:'你成为神秘世界的一员'}
+    ]},
+  };
+
+  // ========== 行动叙述文本库 ==========
+  const ACTION_NARRATIVES={buySupply:['在货架上挑选必需品。商人熟练地打包好货物，微笑着递给你。'],sellTreasure:['商人仔细端详宝物，眼中闪过一丝惊讶。他爽快地付了金币。'],bargain:['一番精彩的讨价还价后，双方都露出了满意的笑容。'],fleamarket:['在旧货摊的角落里发现了一件被遗忘的装备。拂去灰尘后依然闪烁着微光。'],buyWeapon:['铁匠从武器架上取下崭新的武器，金属的光泽让你眼前一亮。'],buyArmor:['铁匠帮你调整了铠甲的尺寸，贴合身体的感觉让你倍感安心。'],buyHelmet:['试戴了几款头盔后选定了最合适的一款。视野清晰，防护到位。'],buyRing:['戒指在灯光下闪烁，戴上的瞬间感到魔力流过指尖。'],buyAmulet:['护符散发着温暖的能量，仿佛在低语着古老的祝福。'],upgradeWeapon:['铁匠在熔炉旁忙碌半天，武器焕然一新，锋刃闪烁着更锐利的光芒。'],upgradeArmor:['防具的铆钉被重新加固，关节处也做了优化。穿上后活动更加自如。'],pray:['跪在神殿中虔诚祈祷，温暖的光芒笼罩了你。心灵得到了净化。'],donateOre:['神官接过金矿石赞许地点头。矿石在祭坛上发出柔和的光芒。'],blessingOre:['神官将银矿石放在祭坛上念诵祷文。银色的光芒笼罩了你。'],rumor:['酒馆里人声鼎沸，从嘈杂中捕捉着有用的信息。'],buyDrink:['麦酒的泡沫在杯中翻腾，与邻座冒险者碰杯分享旅途见闻。'],gamble:['骰子在桌面上滚动，所有人的目光都集中在小小的方块上。'],bounty:['从悬赏板上撕下一张告示仔细阅读。赏金猎人从不放过任何机会。'],gatherHerb:['在林间细心寻找，发现了隐藏在灌木丛中的草药。'],makePotion:['将草药放入研钵中捣碎按配方调配。药水在瓶中发出微光。'],makeManaPotion:['魔法水晶粉末与药液混合，散发出神秘的蓝色光芒。'],exploreCave:['洞穴深处一片漆黑，只有火把照亮前方。每一步都充满未知。'],mineCave:['矿镐敲击岩壁发出清脆回响。汗水滴落但收获的喜悦让人忘记疲劳。'],treasureHunt:['仔细搜索每个角落不放过任何蛛丝马迹。宝藏的味道让人兴奋。'],fairyBless:['妖精轻盈飞舞洒下星光。一股温暖的力量在体内流淌。'],fairyGift:['将礼物放在蘑菇上，妖精欢快地接受了。一片闪烁的羽毛飘落手心。'],fairyOracle:['妖精闭上双眼片刻后睁开，眼中映出未来的景象。'],huntBoar:['野猪在灌木丛中发出威胁性的低吼。握紧武器小心靠近。'],trackWolf:['雪地上的足迹清晰可见，循着痕迹追踪，警觉地注意周围。'],setTrap:['小心翼翼布置好陷阱隐藏在落叶之下。耐心地等待收获。'],digOre:['矿镐敲击岩石迸出火星。汗水浸湿衣衫但每块矿石都值得。'],findCrystal:['在矿洞深处发现了闪闪发光的魔法水晶。它散发着柔和光芒。'],lavaZone:['灼热气息扑面而来，岩浆在脚下缓缓流淌。小心避开危险。'],fightDragon:['巨龙发出震耳欲聋的咆哮！火焰在喉咙中酝酿。'],stealEgg:['蹑手蹑脚靠近龙巢心跳如鼓。龙蛋散发着温热光芒。'],dragonTreasure:['成堆的金币和宝石堆积如山！龙族宝藏名不虚传。'],tameEagle:['在悬崖边发现一只受伤的幼鹰。小心接近后它竟然没有躲开。'],scout:['站在高处视野无比开阔。远处山川河流尽收眼底。'],dwarfForge:['矮人铁匠哼着小曲敲打烧红的金属。火花如烟花般四溅。'],learnDwarf:['矮人师傅耐心教授锻造技巧。虽然辛苦但技艺在提升。'],fightUndead:['骷髅士兵举起生锈武器，空洞眼眶中燃烧幽蓝火焰。'],lootTomb:['墓室中堆积着古老陪葬品。虽有些阴森但财宝诱惑难抗拒。'],lockpick:['小心将工具插入锁孔，耳朵贴近锁芯感受细微反馈。'],blastDoor:['爆炸冲击波震得后退几步。厚重门扉轰然倒塌露出通道。'],talkGhost:['幽灵身影在黑暗中若隐若现。似乎有什么未完心愿要诉说。'],banish:['举起武器神圣力量汇聚锋刃之上。恶灵发出刺耳尖叫后化为轻烟。'],killQueen:['蛛后从天花板上垂下，八只眼睛同时锁定了你。'],collectSilk:['小心将蛛丝从巢穴中剥离。这些丝线坚韧异常。'],studyBook:['泛黄书页中记载着古老知识。沉浸在文字中仿佛与古人对话。'],learnMagic:['按照古籍记载尝试施展古老法术。魔力在指尖聚集——成功了！'],statuePray:['虔诚向石像祷告。石像眼中似乎闪过一丝光芒。'],takeGem:['宝石镶嵌在石像眼眶中闪烁诱人光芒。小心地取下了它。'],openSarcophagus:['石棺盖子缓缓推开发出沉重摩擦声。'],graveGoods:['棺椁中陈列着精美陪葬品。虽然有些不敬但对活人更有用。'],randomPortal:['传送门光芒笼罩了世界。再睁眼时已是完全陌生的地方。'],choosePortal:['选择目的地踏入传送门。身体被能量流包裹转瞬即逝。'],challengeRuler:['向王座上的强大存在发起挑战！这将是一场决定命运的决斗。'],swearFealty:['单膝跪地宣誓效忠。对方满意地点头赐予力量。'],fullRest:['躺在柔软干草堆上让疲惫身体彻底放松。营地中只有篝火噼啪声。'],cookFeast:['在篝火上烤肉香气四溢。其他冒险者投来羡慕目光。'],usePotion:['拔掉瓶塞将药水一饮而尽。温暖从胃部蔓延至全身。'],huntQuest:['赏金猎物就在前方握紧武器准备发起致命一击。'],deliveryQuest:['背着货物穿行荒野中。虽然辛苦但酬劳丰厚。'],exploreQuest:['未知区域在地图上标注着问号。怀着好奇心踏上探索之旅。'],combatTrain:['在训练场挥洒汗水一遍遍练习战斗动作。肌肉记忆正在形成。'],defenseTrain:['专注防守技巧训练，学习如何在猛烈攻击中保持阵脚。'],craftWeapon:['在工坊中叮叮当当敲打金属，崭新武器逐渐成形。'],craftArmor:['皮革和铁片在手中变成结实铠甲。满意地欣赏作品。'],decompose:['将装备拆解成基础材料。虽有些可惜但材料可用于制作。'],sellEquip:['商人接过装备估价。虽回收价不高但总比闲置好。']};
+  const LOCATION_NARRATIVES={town:['街道熙熙攘攘，商贩吆喝声此起彼伏。冒险者们来来往往。','钟楼钟声悠扬响起，白鸽从广场飞起。你感到一丝平静。'],forest:['阳光透过层层叠叠的树叶洒下，在地面绘出金色光斑。','密林深处传来不知名鸟类的啼鸣。踩在厚厚落叶上沙沙作响。'],mountain:['凛冽山风迎面吹来带着冰雪气息。远处峰峦如黛连绵不绝。','站在山腰回望，来路已隐没在云雾之中。天地间仿佛只剩你一人。'],dungeon:['踏入地下瞬间潮湿阴冷气息裹挟而来。黑暗中似乎有什么在窥视。','火把光芒在粗糙石壁上跳跃投下诡异影子。远处传来滴水声。'],ruins:['断壁残垣间曾经的辉煌依稀可辨。历史在这里凝固成了石头。','风穿过残破拱门发出呜咽般声响。抚摸着古老石刻感受岁月重量。'],special:['异样的能量在空气中波动让皮肤微微发麻。这里不是寻常之地。','周围景物似乎与现实有微妙的错位，仿佛置身梦境之中。'],camp:['篝火温暖驱散了旅途疲惫。炊烟袅袅升起营地中传出欢快谈笑声。','简陋帐篷和临时围栏构成了这个小聚居地。冒险者们交换着情报。']};
+  function pickNarrative(pool){if(!pool||pool.length===0)return'';return pool[Math.floor(Math.random()*pool.length)];}
+
+  // ========== 核心系统 ==========
+  const COOLDOWNS={buySupply:15000,sellTreasure:8000,bargain:25000,fleamarket:45000,buyWeapon:12000,buyArmor:12000,buyHelmet:10000,buyRing:10000,buyAmulet:10000,upgradeWeapon:60000,upgradeArmor:60000,pray:20000,donateOre:50000,blessingOre:40000,rumor:8000,buyDrink:12000,gamble:40000,bounty:60000,gatherHerb:15000,makePotion:20000,makeManaPotion:30000,exploreCave:35000,mineCave:18000,treasureHunt:50000,fairyBless:40000,fairyGift:25000,fairyOracle:25000,huntBoar:25000,trackWolf:25000,setTrap:20000,digOre:18000,findCrystal:28000,lavaZone:25000,fightDragon:60000,stealEgg:80000,dragonTreasure:100000,tameEagle:40000,scout:15000,dwarfForge:100000,learnDwarf:50000,fightUndead:35000,lootTomb:50000,lockpick:60000,blastDoor:70000,talkGhost:20000,banish:35000,killQueen:45000,collectSilk:20000,studyBook:40000,learnMagic:80000,statuePray:40000,takeGem:20000,openSarcophagus:45000,graveGoods:50000,randomPortal:30000,choosePortal:25000,challengeRuler:150000,swearFealty:90000,fullRest:35000,cookFeast:25000,usePotion:8000,huntQuest:50000,deliveryQuest:40000,exploreQuest:50000,combatTrain:45000,defenseTrain:45000,craftWeapon:50000,craftArmor:50000,decompose:5000,sellEquip:5000};
+  const DAILY_LIMITS={pray:3,blessingOre:2,donateOre:2,fullRest:3,gamble:5,bounty:3,fleamarket:3,treasureHunt:3,dragonTreasure:1,stealEgg:2,dwarfForge:1,lockpick:3,blastDoor:2,lootTomb:3,challengeRuler:1,huntQuest:3,deliveryQuest:4,exploreQuest:3,craftWeapon:3,craftArmor:3};
+  const TRAITS=[{id:'tough',name:'坚韧',icon:'💪',desc:'生命上限+8%',cost:3,hpMul:0.08},{id:'sharp',name:'锐利',icon:'🗡️',desc:'攻击力+6%',cost:3,atkMul:0.06},{id:'armored',name:'护体',icon:'🛡️',desc:'防御力+6%',cost:3,defMul:0.06},{id:'fortunate',name:'好运',icon:'🍀',desc:'幸运+3',cost:2,luckBonus:3},{id:'critmaster',name:'暴击大师',icon:'💥',desc:'暴击率+4%',cost:4,critBonus:4},{id:'dodger',name:'闪避专家',icon:'💨',desc:'闪避率+5%',cost:4,dodgeBonus:5},{id:'fireborn',name:'火焰之子',icon:'🔥',desc:'火焰伤害+15%',cost:5,elemBonus:0.15,elemAffinity:'fire'},{id:'icesoul',name:'冰霜之心',icon:'❄️',desc:'冰霜伤害+15%',cost:5,elemBonus:0.15,elemAffinity:'ice'},{id:'shadowmancer',name:'暗影操控',icon:'🌑',desc:'暗影伤害+15%',cost:5,elemBonus:0.15,elemAffinity:'shadow'},{id:'treasurehunter',name:'寻宝者',icon:'💎',desc:'金币获取+15%',cost:3,goldMul:0.15},{id:'vampire',name:'吸血',icon:'🩸',desc:'攻击吸血8%',cost:5,lifesteal:0.08},{id:'giantblood',name:'巨人血脉',icon:'🦾',desc:'生命+12%',cost:5,hpMul:0.12},{id:'quicklearner',name:'快速学习',icon:'📖',desc:'经验获取+20%',cost:3,expMul:0.20},{id:'luckybreak',name:'幸运突破',icon:'🌟',desc:'幸运+5暴击+2%',cost:6,luckBonus:5,critBonus:2}];
+  const RAR={common:{n:'普通',c:'rc',atkR:[1,2],defR:[1,2],hpR:[2,3],sell:5,mats:1},uncommon:{n:'精良',c:'ru',atkR:[2,3],defR:[2,3],hpR:[3,5],sell:12,mats:2},rare:{n:'稀有',c:'rr',atkR:[3,5],defR:[3,5],hpR:[5,8],sell:25,mats:3},epic:{n:'史诗',c:'re',atkR:[5,8],defR:[5,8],hpR:[8,12],sell:60,mats:5},legendary:{n:'传说',c:'rl',atkR:[8,12],defR:[8,12],hpR:[12,18],sell:150,mats:8}};
+  const TALENTS=[{id:'warrior',name:'战神后裔',icon:'⚔️',desc:'攻击+2每级+0.5攻',atkBonus:2,atkPerLvl:0.5},{id:'guardian',name:'钢铁壁垒',icon:'🛡️',desc:'防御+2生命+5',defBonus:2,hpBonus:5},{id:'lucky',name:'天选之人',icon:'🍀',desc:'幸运+3',luckBonus:3},{id:'giant',name:'巨人体质',icon:'💪',desc:'生命+8每级+2HP',hpBonus:8,hpPerLvl:2},{id:'mage',name:'魔法亲和',icon:'🔮',desc:'元素+15%',elemBonus:15},{id:'swift',name:'疾风步',icon:'💨',desc:'闪避+10%',dodgeBonus:10},{id:'dragonkin',name:'龙裔',icon:'🐲',desc:'火焰亲和',elemAffinity:'fire',atkBonus:1,defBonus:1},{id:'shadow',name:'暗影行者',icon:'🌑',desc:'潜行+15%',elemAffinity:'shadow'},{id:'healer',name:'治愈体质',icon:'💚',desc:'战后恢复3HP',regen:3}];
+  const WEATHERS=['☀️晴朗','⛅多云','🌧️细雨','🌫️薄雾'];const TIMES=['🌅清晨','☀️上午','🌞正午','🌤️午后','🌇黄昏','🌙夜晚'];
+
+  const S={baseHp:25,maxHp:25,hp:25,baseAtk:5,baseDef:2,baseLuck:2,atk:5,def:2,luck:2,gold:15,lvl:1,exp:0,expNeeded:40,loc:'granville',visited:new Set(['granville']),inv:[],eq:{weapon:null,armor:null,helmet:null,ring:null,amulet:null},cd:{},dayCount:1,stepsToday:0,flags:{},talent:null,traits:[],traitPoints:0,critRate:5,critDmg:1.5,dodge:5,elemAffinity:null,elemBonus:0,lifesteal:0,combatRegen:0,goldMul:0,expMul:0,reputation:{kingdom:0,mystic:0},weather:'☀️晴朗',time:'🌅清晨'};
+
+  function assignTalent(){return TALENTS[Math.floor(Math.random()*TALENTS.length)];}
+  function getRepLevel(f){const v=S.reputation[f]||0;return FACTION_REPUTATION[f].levels.find(l=>v>=l.min)||FACTION_REPUTATION[f].levels[0];}
+  function addRep(f,a){S.reputation[f]=(S.reputation[f]||0)+a;}
+  function recalc(){
+    S.atk=S.baseAtk+Math.floor((S.lvl-1)*1);S.def=S.baseDef+Math.floor((S.lvl-1)*0.5);S.maxHp=S.baseHp+(S.lvl-1)*3;S.luck=S.baseLuck+Math.floor((S.lvl-1)*0.33);
+    const t=S.talent;if(t){if(t.atkBonus)S.atk+=t.atkBonus;if(t.defBonus)S.def+=t.defBonus;if(t.hpBonus)S.maxHp+=t.hpBonus;if(t.luckBonus)S.luck+=t.luckBonus;if(t.atkPerLvl)S.atk+=Math.floor((S.lvl-1)*t.atkPerLvl);if(t.hpPerLvl)S.maxHp+=Math.floor((S.lvl-1)*t.hpPerLvl);if(t.dodgeBonus)S.dodge+=t.dodgeBonus;if(t.elemAffinity)S.elemAffinity=t.elemAffinity;if(t.elemBonus)S.elemBonus+=t.elemBonus;if(t.regen)S.combatRegen=t.regen;}
+    let tm=0,tdm=0,thm=0,tlb=0,tcb=0,tdb=0,teb=0,tgm=0,tem=0,tl=0,tea=null;
+    S.traits.forEach(tid=>{const tr=TRAITS.find(x=>x.id===tid);if(!tr)return;if(tr.atkMul)tm+=tr.atkMul;if(tr.defMul)tdm+=tr.defMul;if(tr.hpMul)thm+=tr.hpMul;if(tr.luckBonus)tlb+=tr.luckBonus;if(tr.critBonus)tcb+=tr.critBonus;if(tr.dodgeBonus)tdb+=tr.dodgeBonus;if(tr.elemBonus)teb+=tr.elemBonus;if(tr.elemAffinity&&!tea)tea=tr.elemAffinity;if(tr.goldMul)tgM+=tr.goldMul;if(tr.expMul)tem+=tr.expMul;if(tr.lifesteal)tl+=tr.lifesteal;});
+    S.atk=Math.floor(S.atk*(1+tm));S.def=Math.floor(S.def*(1+tdm));S.maxHp=Math.floor(S.maxHp*(1+thm));S.luck+=tlb;S.critRate+=tcb;S.dodge+=tdb;S.elemBonus+=teb;if(tea)S.elemAffinity=tea;S.goldMul=tgm;S.expMul=tem;S.lifesteal=tl;
+    let ea=0,ed=0,eh=0,el=0;for(let s in S.eq){const eq=S.eq[s];if(eq){ea+=eq.atk||0;ed+=eq.def||0;eh+=eq.hp||0;el+=eq.luck||0;}}S.atk+=ea;S.def+=ed;S.maxHp+=eh;S.luck+=el;S.hp=Math.min(S.maxHp,S.hp);
+    updateNPCBox();renderEquipBar();
+  }
+  function learnTrait(tid){const tr=TRAITS.find(x=>x.id===tid);if(!tr)return;if(S.traits.includes(tid)){addStory('已拥有该特质。');return;}if(S.traitPoints<tr.cost){addStory(`需${tr.cost}点特质。`);return;}S.traitPoints-=tr.cost;S.traits.push(tid);recalc();addStory(`🌟习得：${tr.icon}${tr.name}！`);upd();}
+
+  function getAppearanceDesc(){
+    const w=S.eq.weapon,a=S.eq.armor,h=S.eq.helmet,r=S.eq.ring,am=S.eq.amulet;
+    if(!w&&!a&&!h&&!r&&!am)return'一名衣着简朴的冒险者，眼神中透着好奇与不安。';
+    let d='';if(a){const n=a.name;if(n.includes('板甲')||n.includes('铠'))d+='身着重甲，';else if(n.includes('袍'))d+='穿着长袍，';else if(n.includes('皮'))d+='穿着皮甲，';else if(n.includes('龙鳞'))d+='身披龙鳞甲，';else d+='穿着护甲，';}else d+='穿着布衣，';
+    if(h){const n=h.name;if(n.includes('王冠'))d+='头戴璀璨王冠，';else if(n.includes('面具')||n.includes('假面'))d+='脸覆神秘面具，';else if(n.includes('光环'))d+='头顶光环环绕，';else if(n.includes('兜帽'))d+='戴着深色兜帽，';else if(n.includes('盔')||n.includes('冠'))d+='头戴坚固头盔，';else d+='戴着简单头饰，';}
+    if(w){const n=w.name;if(n.includes('剑')||n.includes('刃'))d+='腰间佩剑，';else if(n.includes('斧'))d+='背负战斧，';else if(n.includes('杖')||n.includes('魔'))d+='手持法杖，';else if(n.includes('弓'))d+='背负长弓，';else d+='手持武器，';}
+    if(r)d+='戒指微光闪烁，';if(am)d+='护符散发温暖，';d+='整个人气度不凡。';return d;
+  }
+
+  function updateNPCBox(){
+    const npc=getNPCForLocation(S.loc);
+    const loc=LOC[S.loc];const faction=loc.faction||'kingdom';
+    const repLevel=getRepLevel(faction);
+    const reaction=getNPCReaction(npc,repLevel);
+    const appearBonus=getAppearanceNPCBonus();
+    let reactionExtra='';
+    if(appearBonus>0)reactionExtra='你的装备给对方留下了好印象。';
+    else if(appearBonus<0)reactionExtra='你的外表让对方有些警惕。';
+    document.getElementById('npcName').textContent='👤'+npc.name;
+    document.getElementById('npcDesc').textContent=npc.desc||'';
+    document.getElementById('npcReaction').textContent=reaction+(reactionExtra?' '+reactionExtra:'');
+  }
+
+  function genEq(slot,minR='common',maxR='legendary'){const names={weapon:['铁剑','钢剑','阔剑','长剑','短剑','弯刀','战斧','手斧','长戟','长矛','战锤','匕首','魔杖','法杖','秘银剑','龙牙剑','火焰剑','冰霜剑','圣剑','妖刀','武士刀','镰刀','巨剑'],armor:['布衣','皮甲','硬皮甲','锁子甲','链甲','板甲','半身甲','全身甲','鳞甲','环甲','秘银甲','龙鳞甲','魔法袍','贤者袍','战袍','圣袍','暗影衣','铁胸甲','钢铠','骑士铠','圣骑铠','龙骑铠','重铠','忍者服'],helmet:['铁盔','钢盔','秘银盔','龙角盔','角盔','羽盔','冠','王冠','头环','发带','兜帽','风帽','魔法帽','贤者帽','巫师帽','圣帽','暗影帽','骨盔','银盔','金盔','水晶盔','凤羽盔','面具','眼罩'],ring:['铁戒指','银戒指','金戒指','秘银戒指','龙戒','魔戒','圣戒','暗戒','元素戒','力量戒指','守护戒指','生命戒指','魔力戒指','幸运戒指','水晶戒','红宝石戒','蓝宝石戒','钻石戒','火焰戒','冰霜戒','雷电戒','光之戒','精灵戒'],amulet:['铁护符','银护符','金护符','秘银护符','龙心护符','魔心护符','圣心护符','暗心护符','幸运护符','守护护符','魔力护符','生命护符','力量护符','防御护符','水晶符','红宝石符','蓝宝石符','钻石符','火焰符','冰霜符','雷电符','光之符','自然符']};const name=(names[slot]||names['weapon'])[Math.floor(Math.random()*(names[slot]||names['weapon']).length)];const rk=Object.keys(RAR);const mi=rk.indexOf(minR);const ma=rk.indexOf(maxR);const vr=rk.slice(mi,ma+1);const ws=vr.map(k=>RAR[k].sell);const tw=ws.reduce((a,b)=>a+b);let r=Math.random()*tw,sel=vr[0];for(let i=0;i<vr.length;i++){r-=ws[i];if(r<=0){sel=vr[i];break;}}const rd=RAR[sel];let ab=rand(rd.atkR[0],rd.atkR[1]),db=rand(rd.defR[0],rd.defR[1]),hb=rand(rd.hpR[0],rd.hpR[1]),lb=0;if(Math.random()<0.3)lb=rand(1,2);return{id:'eq_'+Date.now()+'_'+rand(1000,9999),name,slot,rarity:sel,atk:ab,def:db,hp:hb,luck:lb,fullName:`[${rd.n}]${name}`};}
+  function eqStat(eq){let t='';if(eq.atk>0)t+=`⚔+${eq.atk} `;if(eq.def>0)t+=`🛡+${eq.def} `;if(eq.hp>0)t+=`❤+${eq.hp} `;if(eq.luck>0)t+=`🍀+${eq.luck}`;return t;}
+  function equip(item){const s=item.slot;if(S.eq[s])S.inv.push(S.eq[s]);S.eq[s]=item;recalc();}
+  function unequip(s){if(S.eq[s]){S.inv.push(S.eq[s]);S.eq[s]=null;recalc();}}
+  function removeMat(name,c=1){let r=0;for(let i=S.inv.length-1;i>=0;i--){if(S.inv[i].name===name&&S.inv[i].type==='material'){S.inv.splice(i,1);r++;if(r>=c)break;}}return r>=c;}
+  function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+  function addStory(t,n='',ar=''){const el=document.getElementById('story');let h=t;if(n)h+=`<span class="narrator-text">「${n}」</span>`;if(ar)h+=`<span class="action-result-text">📋${ar}</span>`;h+=`<span class="appearance-text">👤${getAppearanceDesc().substring(0,60)}</span>`;el.innerHTML=h;}
+  function upd(){
+    document.getElementById('hpD').textContent=S.hp;document.getElementById('atkD').textContent=S.atk;document.getElementById('defD').textContent=S.def;document.getElementById('luckD').textContent=S.luck;document.getElementById('goldD').textContent=S.gold;document.getElementById('lvlD').textContent=S.lvl;
+    const kr=getRepLevel('kingdom'),mr=getRepLevel('mystic');
+    document.getElementById('repKingdom').textContent='🏰'+kr.name;document.getElementById('repKingdom').style.color=kr.color;document.getElementById('repKingdom').style.borderColor=kr.color;
+    document.getElementById('repMystic').textContent='🔮'+mr.name;document.getElementById('repMystic').style.color=mr.color;document.getElementById('repMystic').style.borderColor=mr.color;
+  }
+  function go(){addStory('💀冒险终结……');document.querySelectorAll('.btn').forEach(b=>b.disabled=true);}
+  function addExp(am){S.exp+=Math.floor(am*(1+S.expMul));while(S.exp>=S.expNeeded){S.exp-=S.expNeeded;S.lvl++;S.expNeeded=Math.floor(S.expNeeded*1.3);S.baseHp+=3;S.baseAtk+=1;if(S.lvl%2===0)S.baseDef+=1;if(S.lvl%3===0)S.baseLuck+=1;S.traitPoints++;S.hp=Math.min(S.maxHp,S.hp+5);recalc();addStory(`🎉升级！Lv.${S.lvl}！+1特质点`,'一股暖流涌遍全身。');}}
+  function advanceTime(){S.stepsToday++;if(S.stepsToday>=10){S.stepsToday=0;S.dayCount++;S.time=TIMES[Math.floor(Math.random()*TIMES.length)];if(Math.random()<0.3)S.weather=WEATHERS[Math.floor(Math.random()*WEATHERS.length)];}}
+  function renderEquipBar(){const bar=document.getElementById('equipBar');const slots=['weapon','armor','helmet','ring','amulet'];const icons={weapon:'⚔️',armor:'🛡️',helmet:'⛑️',ring:'💍',amulet:'📿'};bar.innerHTML=slots.map(s=>{const eq=S.eq[s];const rc=eq?RAR[eq.rarity]?.c||'rc':'';return`<div class="equip-slot" onclick="oC()"><span class="equip-slot-name">${icons[s]}</span><div class="equip-slot-item ${rc}">${eq?eq.fullName:'空'}</div></div>`;}).join('');}
+  function isOnCooldown(act){const now=Date.now();const cdTime=COOLDOWNS[act]||15000;if(S.cd[act]&&now-S.cd[act]<cdTime)return Math.ceil((cdTime-(now-S.cd[act]))/1000);if(DAILY_LIMITS[act]){const count=S.flags['daily_'+act]||0;const lastDay=S.flags['dailyDay_'+act]||0;if(lastDay===S.dayCount&&count>=DAILY_LIMITS[act])return-1;}return 0;}
+  function setCooldown(act){S.cd[act]=Date.now();if(DAILY_LIMITS[act]){const lastDay=S.flags['dailyDay_'+act]||0;if(lastDay!==S.dayCount){S.flags['daily_'+act]=1;S.flags['dailyDay_'+act]=S.dayCount;}else{S.flags['daily_'+act]=(S.flags['daily_'+act]||0)+1;}}}
+
+  // ========== 150地点 ==========
+  const LOC={
+    granville:{n:'🏰王都格兰威尔',r:'town',x:22,y:18,d:'大陆最大的王国首都，冒险者公会的总部所在地。',story:'王都发出召集令，你响应号召来到了这里。',faction:'kingdom'},
+    silverport:{n:'⚓银帆港',r:'town',x:10,y:22,d:'西部海岸的贸易港口，船只通往海外。',faction:'kingdom'},ironforge:{n:'🔨铸铁城',r:'town',x:18,y:10,d:'矮人工匠的工业城市。',faction:'kingdom'},moonbrook:{n:'🌙月溪镇',r:'town',x:14,y:16,d:'月光石矿产地。',faction:'kingdom'},sunspire:{n:'☀️日曜尖塔',r:'town',x:28,y:8,d:'圣骑士团驻地。',faction:'kingdom'},thornwall:{n:'🌹荆棘墙堡',r:'town',x:8,y:14,d:'西部边境的玫瑰要塞。',faction:'kingdom'},goldfield:{n:'💛金田村',r:'town',x:16,y:24,d:'金色麦田的丰收村庄。',faction:'kingdom'},shadowmere:{n:'🌑暗影湖城',r:'town',x:26,y:22,d:'迷雾笼罩的湖畔都市。',faction:'kingdom'},eastgate:{n:'🚪东门镇',r:'town',x:34,y:16,d:'通往东方荒野的关隘。',faction:'kingdom'},frosthaven:{n:'❄️霜港',r:'town',x:4,y:8,d:'北方冰雪港口。',faction:'kingdom'},embervale:{n:'🔥余烬谷',r:'town',x:32,y:12,d:'火山温泉村落。',faction:'kingdom'},riverrun:{n:'💧奔流城',r:'town',x:12,y:28,d:'三河交汇的水上城市。',faction:'kingdom'},highgarden:{n:'🌸高庭',r:'town',x:20,y:6,d:'贵族的花园都市。',faction:'kingdom'},crossroads:{n:'✖️十字路口',r:'town',x:24,y:14,d:'大陆公路的交汇点。',faction:'kingdom'},oldtown:{n:'📜旧镇',r:'town',x:6,y:20,d:'历史悠久的古城。',faction:'kingdom'},
+    elderwood:{n:'🌳古木之森',r:'forest',x:38,y:24,d:'精灵族的圣地。',faction:'mystic'},whispergrove:{n:'🍃低语林地',r:'forest',x:44,y:20,d:'德鲁伊修行地。',faction:'mystic'},shadowfen:{n:'🕷️暗影沼泽',r:'forest',x:34,y:34,d:'毒雾弥漫的危险沼泽。',faction:'mystic'},emeraldglade:{n:'💚翡翠空地',r:'forest',x:48,y:26,d:'精灵出没的秘境。',faction:'mystic'},fairyring:{n:'🧚妖精环',r:'forest',x:50,y:18,d:'妖精聚集的神秘石圈。',faction:'mystic'},druidcircle:{n:'🌿德鲁伊之环',r:'forest',x:50,y:28,d:'德鲁伊举行仪式之地。',faction:'mystic'},
+    dragonpeak:{n:'🐉龙峰',r:'mountain',x:30,y:2,d:'远古巨龙栖息的山巅。',faction:'kingdom'},dwarvenhold:{n:'⚒️矮人要塞',r:'mountain',x:34,y:6,d:'矮人山中城市。',faction:'kingdom'},crystalcave:{n:'💠水晶洞窟',r:'mountain',x:36,y:8,d:'魔力水晶充盈的洞穴。',faction:'mystic'},
+    darkmere:{n:'🕳️暗渊地城',r:'dungeon',x:60,y:20,d:'深不见底的地下迷宫。',faction:'mystic'},bonecatacomb:{n:'💀白骨墓穴',r:'dungeon',x:64,y:24,d:'亡灵徘徊的骸骨之地。',faction:'mystic'},treasurevault:{n:'💰藏宝库',r:'dungeon',x:66,y:32,d:'传说藏有巨额财富。',faction:'kingdom'},
+    sunkenruins:{n:'🏛️沉没遗迹',r:'ruins',x:50,y:58,d:'水下的古代都市。',faction:'mystic'},elvenruins:{n:'🧝精灵废墟',r:'ruins',x:44,y:50,d:'精灵王国的残骸。',faction:'mystic'},starlibrary:{n:'⭐星之图书馆',r:'ruins',x:52,y:46,d:'藏有失落知识的废墟。',faction:'mystic'},forgeofgods:{n:'🔨神之熔炉',r:'ruins',x:60,y:44,d:'传说中锻造神器之地。',faction:'mystic'},
+    fairyrealm:{n:'🧚仙境入口',r:'special',x:82,y:58,d:'妖精界的入口。',faction:'mystic'},demonthrone:{n:'👿魔王城',r:'special',x:90,y:30,d:'魔王军大本营。',faction:'kingdom'},celestialpeak:{n:'👼天界峰',r:'special',x:50,y:2,d:'天界最近的地方。',faction:'mystic'},voidrift:{n:'🕳️虚空裂隙',r:'special',x:78,y:30,d:'混沌能量的裂缝。',faction:'mystic'},
+    adventurercamp1:{n:'⛺王都近郊营地',r:'camp',x:20,y:22,d:'冒险者出发前的补给点。',faction:'kingdom'},adventurercamp2:{n:'🏕️森林边缘营地',r:'camp',x:40,y:22,d:'进入森林前的安全营地。',faction:'kingdom'},mercenarycamp:{n:'⚔️佣兵营地',r:'camp',x:18,y:30,d:'佣兵团驻扎地。',faction:'kingdom'},hunterslodge:{n:'🏹猎人之家',r:'camp',x:42,y:28,d:'猎人们分享猎物的小屋。',faction:'kingdom'},herbalisthut:{n:'🌿草药师小屋',r:'camp',x:44,y:34,d:'药草师的隐居小屋。',faction:'mystic'},
+  };
+
+  const REGION_COLORS={town:'#e0b870',forest:'#6ab86a',mountain:'#c9a0a0',dungeon:'#a080c0',ruins:'#c0b080',special:'#c080c0',camp:'#80a080'};
+
+  function renderMap(){
+    const inner=document.getElementById('mapInner');inner.innerHTML='';
+    const terrains=[{x:4,y:2,w:46,h:28,color:'#e0b870',label:'西部王国'},{x:30,y:12,w:28,h:36,color:'#6ab86a',label:'中央森林'},{x:20,y:0,w:30,h:16,color:'#c9a0a0',label:'北部山脉'},{x:50,y:14,w:34,h:28,color:'#a080c0',label:'东部荒野'},{x:40,y:42,w:42,h:26,color:'#c0b080',label:'南部沙漠'}];
+    terrains.forEach(t=>{const d=document.createElement('div');d.className='terrain';d.style.cssText=`left:${t.x}%;top:${t.y}%;width:${t.w}%;height:${t.h}%;background:${t.color};`;inner.appendChild(d);const l=document.createElement('div');l.className='terrain-label';l.style.cssText=`left:${t.x+1}%;top:${t.y+1}%;`;l.textContent=t.label;inner.appendChild(l);});
+    Object.entries(LOC).forEach(([id,loc])=>{const d=document.createElement('div');d.className='map-location';if(S.visited.has(id))d.classList.add('visited');if(S.loc===id)d.classList.add('current');const c=REGION_COLORS[loc.r]||'#888';d.style.cssText=`left:${loc.x}%;top:${loc.y}%;`;d.innerHTML=`<span class="loc-dot" style="background:${c};"></span><span class="loc-name">${loc.n}</span>`+((S.loc===id)?'📍':'');d.addEventListener('click',(e)=>{e.stopPropagation();changeLoc(id);});inner.appendChild(d);});
+  }
+
+  function getBuilds(){const r=LOC[S.loc].r;const b=[];if(r==='town'){b.push({n:'🏪集市',a:[{l:'🛒补给(5金)',act:'buySupply'},{l:'💰卖宝物',act:'sellTreasure'},{l:'🤝讨价',act:'bargain'},{l:'🔍淘旧货',act:'fleamarket'}]});b.push({n:'🗡️铁匠铺',a:[{l:'🛒武器(15金)',act:'buyWeapon'},{l:'🛒铠甲(15金)',act:'buyArmor'},{l:'🛒头盔(10金)',act:'buyHelmet'},{l:'🛒戒指(10金)',act:'buyRing'},{l:'🛒护符(10金)',act:'buyAmulet'},{l:'⚒️强武(10金+铁)',act:'upgradeWeapon'},{l:'🛡️强防(10金+铁)',act:'upgradeArmor'},{l:'🔧分解',act:'decompose'},{l:'💰出售',act:'sellEquip'}]});b.push({n:'⛪神殿',a:[{l:'🙏祈祷',act:'pray'},{l:'💰捐献(金+5)',act:'donateOre'},{l:'✨祝福(银+3)',act:'blessingOre'}]});b.push({n:'🍺酒馆',a:[{l:'👂打听',act:'rumor'},{l:'🍻请酒(3金)',act:'buyDrink'},{l:'🎲赌博',act:'gamble'},{l:'📋悬赏',act:'bounty'}]});}else if(r==='forest'){b.push({n:'🌿草药屋',a:[{l:'🌱采药',act:'gatherHerb'},{l:'💊制药',act:'makePotion'},{l:'🧪魔力药水',act:'makeManaPotion'}]});b.push({n:'🕸️洞穴',a:[{l:'💀探索',act:'exploreCave'},{l:'⛏️采矿',act:'mineCave'},{l:'🔦寻宝',act:'treasureHunt'}]});b.push({n:'🧚妖精环',a:[{l:'💫祝福',act:'fairyBless'},{l:'🎁礼物(3金)',act:'fairyGift'},{l:'🔮预言',act:'fairyOracle'}]});b.push({n:'🐗狩猎场',a:[{l:'🏹猎野猪',act:'huntBoar'},{l:'🐺追狼',act:'trackWolf'},{l:'🪤陷阱',act:'setTrap'}]});}else if(r==='mountain'){b.push({n:'⛏️矿洞',a:[{l:'💎挖矿',act:'digOre'},{l:'💠找水晶',act:'findCrystal'},{l:'🔥熔岩区',act:'lavaZone'}]});b.push({n:'🐉龙巢',a:[{l:'⚔️战龙',act:'fightDragon'},{l:'🕵️偷蛋',act:'stealEgg'},{l:'🔍龙宝',act:'dragonTreasure'}]});b.push({n:'🦅鹰崖',a:[{l:'🪶驯鹰',act:'tameEagle'},{l:'🔭侦察',act:'scout'}]});b.push({n:'⚒️矮人铁砧',a:[{l:'🔨锻造(金+10)',act:'dwarfForge'},{l:'📜学艺',act:'learnDwarf'}]});}else if(r==='dungeon'){b.push({n:'💀死灵厅',a:[{l:'⚔️讨伐',act:'fightUndead'},{l:'💎搜刮',act:'lootTomb'}]});b.push({n:'🔓宝库',a:[{l:'🗝️开锁',act:'lockpick'},{l:'💣炸门',act:'blastDoor'}]});b.push({n:'👻幽魂廊',a:[{l:'🗣️交谈',act:'talkGhost'},{l:'⚔️驱散',act:'banish'}]});b.push({n:'🕷️蛛巢',a:[{l:'⚔️斩蛛后',act:'killQueen'},{l:'🕸️采丝',act:'collectSilk'}]});}else if(r==='ruins'){b.push({n:'📖图书馆',a:[{l:'📚研读',act:'studyBook'},{l:'🔮学魔法',act:'learnMagic'}]});b.push({n:'🗿石像间',a:[{l:'🙏祈祷',act:'statuePray'},{l:'💎取宝石',act:'takeGem'}]});b.push({n:'⚱️古墓',a:[{l:'💀开棺',act:'openSarcophagus'},{l:'💎收集',act:'graveGoods'}]});}else if(r==='special'){b.push({n:'🌌次元门',a:[{l:'🌀传送',act:'randomPortal'},{l:'🔮选目的地(3金)',act:'choosePortal'}]});b.push({n:'👑王座',a:[{l:'⚔️挑战',act:'challengeRuler'},{l:'🤝效忠',act:'swearFealty'}]});}else if(r==='camp'){b.push({n:'⛺休息区',a:[{l:'🛌休息',act:'fullRest'},{l:'🍖烹饪',act:'cookFeast'},{l:'💊用药',act:'usePotion'}]});b.push({n:'📋任务板',a:[{l:'📜讨伐',act:'huntQuest'},{l:'📦运送',act:'deliveryQuest'},{l:'🔍探索',act:'exploreQuest'}]});b.push({n:'🎯训练场',a:[{l:'⚔️战斗训练',act:'combatTrain'},{l:'🛡️防御训练',act:'defenseTrain'}]});b.push({n:'🛠️工坊',a:[{l:'🔨制武器(铁+银)',act:'craftWeapon'},{l:'🛡️制防具(铁+银)',act:'craftArmor'}]});}return b;}
+  function renderBuildActions(){const c=document.getElementById('buildActions');c.innerHTML='';getBuilds().forEach(b=>{const bl=document.createElement('div');bl.className='section-label';bl.textContent=b.n;c.appendChild(bl);const ag=document.createElement('div');ag.className='btn-grid';b.a.forEach(a=>{const btn=document.createElement('button');const cd=isOnCooldown(a.act);if(cd===-1){btn.textContent=a.l+' [上限]';btn.disabled=true;btn.className='btn btn-act';}else if(cd>0){btn.textContent=a.l+` [${cd}s]`;btn.disabled=true;btn.className='btn btn-act';}else{if(a.act.startsWith('buy'))btn.className='btn btn-shop';else if(['fightDragon','fightUndead','banish','killQueen','openSarcophagus','challengeRuler','huntBoar','trackWolf','exploreCave','huntQuest'].includes(a.act))btn.className='btn btn-combat';else btn.className='btn btn-act';btn.textContent=a.l;}btn.addEventListener('click',()=>{exec(a.act);setTimeout(()=>{renderBuildActions();},100);});ag.appendChild(btn);});c.appendChild(ag);});}
+
+  function changeLoc(locId){
+    S.loc=locId;S.visited.add(locId);advanceTime();
+    const loc=LOC[locId];const regionNarrator=pickNarrative(LOCATION_NARRATIVES[loc.r]);
+    document.getElementById('locNameDisplay').textContent=loc.n;
+    document.getElementById('locDescDisplay').textContent=loc.d||'值得探索之地。';
+    addStory(`来到${loc.n}`,regionNarrator,loc.story||'');
+    if(loc.faction)addRep(loc.faction,1);
+    upd();updateNPCBox();renderMap();renderBuildActions();
+  }
+
+  function combat(n,atk,def,hp,rew,sl){
+    let eh=hp,ph=S.hp,log='';addStory(`⚔️与${n}战斗！`,'战斗一触即发！');
+    for(let i=0;i<30;i++){let pd=Math.max(1,S.atk-def+rand(0,2));if(Math.random()<S.critRate/100){pd=Math.floor(pd*S.critDmg);log+='💥暴击！';}if(S.lifesteal>0){S.hp=Math.min(S.maxHp,S.hp+Math.floor(pd*S.lifesteal));}eh-=pd;if(eh<=0){log+=`胜利！+${rew}金。`;S.gold+=Math.floor(rew*(1+S.goldMul));addExp(5+S.lvl*2);if(Math.random()<0.4){const s=['weapon','armor','helmet','ring','amulet'][rand(0,4)];const eq=genEq(s,'common','rare');S.inv.push(eq);log+=` ⚡${eq.fullName}！`;}if(Math.random()<0.5){S.inv.push({name:['铁矿石','银矿石','狼牙','蜘蛛丝'][rand(0,3)],type:'material'});log+=' 📦材料。';}if(sl&&Math.random()<0.4){S.inv.push({name:sl,type:'material'});log+=` 🌟${sl}！`;}const loc=LOC[S.loc];if(loc&&loc.faction)addRep(loc.faction,2);break;}let ed=Math.max(1,atk-S.def+rand(0,1));if(Math.random()<S.dodge/100){ed=0;log+='💨闪避！';}ph-=ed;if(ph<=0){log+='你倒下了……';break;}}
+    S.hp=Math.max(0,ph);if(S.combatRegen>0&&S.hp>0)S.hp=Math.min(S.maxHp,S.hp+S.combatRegen);addStory(log,S.hp>0?'战斗结束。':'');upd();if(S.hp<=0)go();
+  }
+
+  function exec(act){
+    const cd=isOnCooldown(act);if(cd===-1){addStory('⏰今日已达上限。');upd();return;}if(cd>0){addStory(`⏳冷却中，${cd}秒。`);upd();return;}
+    advanceTime();let log='';const r=Math.random();const loc=LOC[S.loc];
+    const acts={buySupply:()=>{if(S.gold>=5){S.gold-=5;S.inv.push({name:'治疗药水',type:'potion'});log='购药水。';}else log='金不足。';},sellTreasure:()=>{const i=S.inv.findIndex(x=>x.name==='古代金币');if(i>-1){S.inv.splice(i,1);S.gold+=8;log='卖宝物。';}else log='无。';},bargain:()=>{if(r<0.5){S.gold+=4;log='讨价+4金。';}else log='拒绝。';},fleamarket:()=>{const eq=genEq(['weapon','armor','helmet','ring','amulet'][rand(0,4)],'common','uncommon');S.inv.push(eq);log=`淘到${eq.fullName}！`;},buyWeapon:()=>buyEq('weapon',15),buyArmor:()=>buyEq('armor',15),buyHelmet:()=>buyEq('helmet',10),buyRing:()=>buyEq('ring',10),buyAmulet:()=>buyEq('amulet',10),upgradeWeapon:()=>{if(S.gold>=10&&removeMat('铁矿石')){S.gold-=10;S.baseAtk+=1;recalc();log='强化攻击+1！';}else log='需10金+铁矿石。';},upgradeArmor:()=>{if(S.gold>=10&&removeMat('铁矿石')){S.gold-=10;S.baseDef+=1;recalc();log='强化防御+1！';}else log='需10金+铁矿石。';},pray:()=>{S.hp=Math.min(S.maxHp,S.hp+8);log='祈祷HP+8。';},donateOre:()=>{if(removeMat('金矿石')&&S.gold>=5){S.gold-=5;S.baseAtk+=1;S.baseDef+=1;recalc();log='捐献攻防+1！';}else log='需金矿石+5金。';},blessingOre:()=>{if(removeMat('银矿石')&&S.gold>=3){S.gold-=3;S.baseLuck+=1;recalc();log='祝福幸运+1！';}else log='需银矿石+3金。';},rumor:()=>{log='传闻：'+['森林宝藏','龙峰巨龙','营地任务'][rand(0,2)];},buyDrink:()=>{if(S.gold>=3){S.gold-=3;S.hp=Math.min(S.maxHp,S.hp+3);log='请酒HP+3。';}else log='金不足。';},gamble:()=>{if(r<0.4+S.luck*0.02){S.gold+=10;log='赢+10金。';}else{S.gold=Math.max(0,S.gold-4);log='输-4金。';}},bounty:()=>{S.gold+=10;addExp(3);log='悬赏+10金。';},gatherHerb:()=>{S.inv.push({name:'解毒草',type:'material'});log='采药。';},makePotion:()=>{if(removeMat('解毒草')){S.inv.push({name:'治疗药水',type:'potion'});log='制药水。';}else log='需解毒草。';},makeManaPotion:()=>{if(removeMat('魔法水晶')){S.inv.push({name:'魔力药水',type:'potion'});log='制魔力药水。';}else log='需魔法水晶。';},exploreCave:()=>{if(r<0.5)combat('洞穴巨熊',9,3,15,10,'熊皮');else{S.gold+=8;S.inv.push({name:'铁矿石',type:'material'});log='发现矿石。';}},mineCave:()=>{S.inv.push({name:['铁矿石','银矿石'][rand(0,1)],type:'material'});log='采到矿石。';},treasureHunt:()=>{if(r<0.3+S.luck*0.03){S.gold+=15;S.inv.push({name:'古代金币',type:'treasure'});log='发现宝藏！';}else log='无发现。';},fairyBless:()=>{S.baseAtk+=1;recalc();log='祝福攻击+1。';},fairyGift:()=>{if(S.gold>=3){S.gold-=3;S.inv.push({name:'精灵之羽',type:'material'});log='获精灵之羽。';}else log='金不足。';},fairyOracle:()=>{log='预言。';S.gold+=3;},huntBoar:()=>{if(r<0.5)combat('狂暴野猪',8,2,12,8,'狼牙');else{S.inv.push({name:'狼牙',type:'material'});log='狩猎成功。';}},trackWolf:()=>{if(r<0.5)combat('狼群',7,1,10,8,'狼牙');else{S.inv.push({name:'狼牙',type:'material'});log='追踪到狼群。';}},setTrap:()=>{if(r<0.5){S.inv.push({name:'狼牙',type:'material'});log='陷阱捕获。';}else log='空了。';},digOre:()=>{S.inv.push({name:['铁矿石','银矿石','金矿石'][rand(0,2)],type:'material'});log='挖到矿石。';},findCrystal:()=>{S.inv.push({name:'魔法水晶',type:'material'});log='发现水晶。';},lavaZone:()=>{if(r<0.5){S.inv.push({name:'火焰石',type:'material'});log='火焰石。';}else{S.hp-=2;log='灼伤HP-2。';}},fightDragon:()=>combat('幼龙',12,5,22,18,'龙鳞碎片'),stealEgg:()=>{if(r<0.3){S.inv.push({name:'龙牙',type:'material'});S.gold+=20;log='偷蛋成功！';}else{S.hp-=5;log='被发现HP-5。';}},dragonTreasure:()=>{S.gold+=25;S.inv.push({name:'古代金币',type:'treasure'});log='发现龙宝！';},tameEagle:()=>{if(r<0.5){S.baseAtk+=1;recalc();log='驯鹰+1攻。';}else{S.inv.push({name:'精灵之羽',type:'material'});log='鹰飞留羽。';}},scout:()=>{log='侦察。';S.gold+=3;},dwarfForge:()=>{if(removeMat('金矿石')&&S.gold>=10){S.gold-=10;S.baseAtk+=2;recalc();log='锻造+2攻！';}else log='需金矿石+10金。';},learnDwarf:()=>{S.baseDef+=1;recalc();log='学艺+1防。';},fightUndead:()=>combat('骷髅战士',8,3,14,10,'暗影石'),lootTomb:()=>{S.gold+=12;S.inv.push({name:'古代金币',type:'treasure'});log='搜刮。';},lockpick:()=>{if(r<0.4){S.gold+=18;S.inv.push({name:'魔法水晶',type:'material'});log='开锁成功！';}else log='失败。';},blastDoor:()=>{S.gold+=15;log='炸门发现宝藏。';},talkGhost:()=>{if(r<0.5){S.inv.push({name:'暗影石',type:'material'});log='幽灵告知宝藏。';}else log='幽灵消散。';},banish:()=>combat('恶灵',10,4,16,12,'暗影石'),killQueen:()=>combat('蛛后',12,5,20,16,'蜘蛛丝'),collectSilk:()=>{S.inv.push({name:'蜘蛛丝',type:'material'});log='收集蛛丝。';},studyBook:()=>{S.baseAtk+=1;recalc();log='研读+1攻。';},learnMagic:()=>{if(!S.flags.lm){S.flags.lm=true;S.baseAtk+=2;recalc();log='习得魔法+2攻！';}else log='已学过。';},statuePray:()=>{S.baseDef+=1;recalc();log='石像+1防。';},takeGem:()=>{S.inv.push({name:'魔法水晶',type:'material'});log='取下宝石。';},openSarcophagus:()=>{if(r<0.5)combat('木乃伊',11,5,20,14,'古代金币');else{S.gold+=14;S.inv.push({name:'古代金币',type:'treasure'});log='开棺发现财宝。';}},graveGoods:()=>{S.gold+=10;S.inv.push({name:'月之泪',type:'material'});log='收集陪葬品。';},randomPortal:()=>{changeLoc(Object.keys(LOC)[rand(0,Object.keys(LOC).length-1)]);return;},choosePortal:()=>{if(S.gold>=3){S.gold-=3;changeLoc(Object.keys(LOC)[rand(0,Object.keys(LOC).length-1)]);return;}else log='需3金。';},challengeRuler:()=>combat('区域统治者',15,7,28,25,'金矿石'),swearFealty:()=>{S.baseAtk+=1;S.baseDef+=1;recalc();log='效忠获力量。';},fullRest:()=>{S.hp=Math.min(S.maxHp,S.hp+12);log='休息HP恢复。';},cookFeast:()=>{S.hp=Math.min(S.maxHp,S.hp+6);log='烹饪HP+6。';},usePotion:()=>{const i=S.inv.findIndex(x=>x.name==='治疗药水');if(i>-1){S.inv.splice(i,1);S.hp=Math.min(S.maxHp,S.hp+8);log='用药HP+8。';}else log='无药水。';},huntQuest:()=>combat('通缉犯',9,3,15,12,'银矿石'),deliveryQuest:()=>{S.gold+=8;addExp(3);log='运送+8金。';},exploreQuest:()=>{S.gold+=10;addExp(4);log='探索+10金。';},combatTrain:()=>{S.baseAtk+=1;recalc();log='训练+1攻。';},defenseTrain:()=>{S.baseDef+=1;recalc();log='训练+1防。';},craftWeapon:()=>{if(removeMat('铁矿石')&&removeMat('银矿石')){const eq=genEq('weapon','uncommon','rare');S.inv.push(eq);log=`制作${eq.fullName}！`;}else log='需铁矿石+银矿石。';},craftArmor:()=>{if(removeMat('铁矿石')&&removeMat('银矿石')){const eq=genEq('armor','uncommon','rare');S.inv.push(eq);log=`制作${eq.fullName}！`;}else log='需铁矿石+银矿石。';},decompose:()=>{window.oB();return;},sellEquip:()=>{window.oB();return;}};
+    if(acts[act]){acts[act]();if(['randomPortal','choosePortal','decompose','sellEquip'].includes(act)){upd();renderMap();renderBuildActions();return;}}
+    setCooldown(act);const narrator=pickNarrative(ACTION_NARRATIVES[act]);if(log)addStory(log,narrator);upd();if(S.hp<=0)go();renderBuildActions();
+  }
+  function buyEq(slot,price){if(S.gold>=price){S.gold-=price;const eq=genEq(slot,'common','rare');S.inv.push(eq);addStory(`购买${eq.fullName}！`);}else addStory(`需${price}金。`);}
+
+  window.oB=function(){const l=document.getElementById('bagL');if(S.inv.length===0){l.innerHTML='<p style="color:#aaa;">行囊空空。</p>';}else{l.innerHTML=S.inv.map((item,idx)=>{if(item.slot){const rc=RAR[item.rarity]||{c:'rc'};return`<div class="modal-item"><span class="${rc.c}">${item.fullName}</span><small>${eqStat(item)}</small><div style="display:flex;gap:2px;"><button class="equip-btn" onclick="eFB(${idx})">装备</button><button class="sell-btn" onclick="sFB(${idx})">卖💰${RAR[item.rarity]?.sell||5}</button><button class="decompose-btn" onclick="dFB(${idx})">分解</button></div></div>`;}return`<div class="modal-item"><span>${item.name}${item.type==='material'?'⛏️':''}${item.type==='potion'?'🧪':''}</span></div>`;}).join('');}document.getElementById('bagM').style.display='flex';};
+  window.eFB=function(idx){const item=S.inv[idx];if(item&&item.slot){equip(item);S.inv.splice(idx,1);addStory(`装备${item.fullName}！外观发生了变化。`);upd();cM('bagM');renderBuildActions();}};
+  window.sFB=function(idx){const item=S.inv[idx];if(item&&item.slot){S.gold+=RAR[item.rarity]?.sell||5;S.inv.splice(idx,1);addStory('出售装备。');upd();cM('bagM');}};
+  window.dFB=function(idx){const item=S.inv[idx];if(item&&item.slot){const c=RAR[item.rarity]?.mats||1;for(let i=0;i<c;i++)S.inv.push({name:['铁矿石','银矿石','魔法水晶'][rand(0,2)],type:'material'});S.inv.splice(idx,1);addStory('分解获得材料。');upd();cM('bagM');}};
+  window.oC=function(){const i=document.getElementById('charI');let h=`<p>❤️${S.hp}/${S.maxHp} ⚔️${S.atk}(基${S.baseAtk}) 🛡️${S.def}(基${S.baseDef}) 🍀${S.luck} 💰${S.gold} Lv.${S.lvl}</p>`;const kr=getRepLevel('kingdom'),mr=getRepLevel('mystic');h+=`<p>🏰王国：<span style="color:${kr.color}">${kr.name}</span> 🔮神秘：<span style="color:${mr.color}">${mr.name}</span></p>`;if(S.talent)h+=`<p>🎖️天赋：${S.talent.icon}${S.talent.name} - ${S.talent.desc}</p>`;if(S.traits.length>0){h+=`<p>🌟特质：`;S.traits.forEach(tid=>{const tr=TRAITS.find(x=>x.id===tid);if(tr)h+=`<span style="color:#b89ad8;">${tr.icon}${tr.name} </span>`;});h+='</p>';}h+=`<p>🌟特质点数：<b>${S.traitPoints}</b></p><p>👤外观：${getAppearanceDesc()}</p><hr><p><b>装备：</b></p>`;['weapon','armor','helmet','ring','amulet'].forEach(s=>{const eq=S.eq[s];h+=`<p>${s}:${eq?`<span class="${RAR[eq.rarity]?.c||''}">${eq.fullName}${eqStat(eq)}</span>`:'空'}`;if(eq)h+=`<button class="unequip-btn" onclick="uS('${s}')">卸下</button>`;});i.innerHTML=h;document.getElementById('charM').style.display='flex';};
+  window.uS=function(s){unequip(s);addStory('卸下装备。外观恢复了。');upd();cM('charM');renderBuildActions();};
+  window.oT=function(){const i=document.getElementById('traitI');let h=`<p>🌟可用特质点数：<b>${S.traitPoints}</b></p><hr>`;TRAITS.forEach(tr=>{const owned=S.traits.includes(tr.id);h+=`<div class="modal-item"><span>${tr.icon}${tr.name}<small>(${tr.desc})</small></span><span>${tr.cost}点</span>`;if(owned)h+=`<span style="color:#8cff8c;">已习得</span>`;else if(S.traitPoints>=tr.cost)h+=`<button class="trait-btn" onclick="lT('${tr.id}')">学习</button>`;else h+=`<span style="color:#ff6b6b;">不足</span>`;h+='</div>';});i.innerHTML=h;document.getElementById('traitM').style.display='flex';};
+  window.lT=function(tid){learnTrait(tid);upd();window.oT();window.oC();};
+  window.cM=function(id){document.getElementById(id).style.display='none';};
+  document.querySelectorAll('.modal').forEach(m=>{m.addEventListener('click',function(e){if(e.target===this)cM(this.id);});});
+
+  function reset(){S.baseHp=25;S.maxHp=25;S.hp=25;S.baseAtk=5;S.baseDef=2;S.baseLuck=2;S.atk=5;S.def=2;S.luck=2;S.gold=15;S.lvl=1;S.exp=0;S.expNeeded=40;S.loc='granville';S.visited=new Set(['granville']);S.inv=[];S.eq={weapon:null,armor:null,helmet:null,ring:null,amulet:null};S.cd={};S.flags={};S.critRate=5;S.critDmg=1.5;S.dodge=5;S.talent=assignTalent();S.traits=[];S.traitPoints=0;S.elemAffinity=null;S.elemBonus=0;S.lifesteal=0;S.combatRegen=0;S.goldMul=0;S.expMul=0;S.reputation={kingdom:0,mystic:0};S.weather='☀️晴朗';S.time='🌅清晨';S.dayCount=1;S.stepsToday=0;recalc();document.getElementById('locNameDisplay').textContent='🏰王都格兰威尔';document.getElementById('locDescDisplay').textContent='大陆最大的王国首都。';upd();updateNPCBox();addStory('命运重启！🗺️','新的冒险开始了。');renderMap();renderBuildActions();document.querySelectorAll('.btn').forEach(b=>b.disabled=false);}
+  document.getElementById('resetB').addEventListener('click',()=>{document.getElementById('confirmM').style.display='flex';});
+  document.getElementById('confirmReset').addEventListener('click',()=>{cM('confirmM');reset();});
+
+  S.talent=assignTalent();recalc();
+  document.getElementById('locNameDisplay').textContent='🏰王都格兰威尔';
+  document.getElementById('locDescDisplay').textContent='大陆最大的王国首都，冒险者公会的总部所在地。';
+  upd();updateNPCBox();
+  addStory('欢迎来到艾尔德兰大陆！🗺️','第一章：王都的召唤。','每个地点都有独特的NPC，你的外观会影响他们对你的态度。');
+  renderMap();renderBuildActions();
+})();
+</script>
+</body>
+</html>
